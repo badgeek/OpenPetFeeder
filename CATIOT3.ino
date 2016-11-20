@@ -12,6 +12,11 @@
 */
 
 #include <ESP8266WiFi.h> 
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 
 #include "WiFiClientSecureRedirect.h" 
 #include <ArduinoJson.h> 
@@ -50,6 +55,11 @@ String event_prev_id = "";
   #define DPRINTLN(...)   //now defines a blank line
 #endif
 
+ESP8266WebServer server(80);
+
+unsigned long previousMillis = 0;
+const long interval = 5000;
+
 void setup() {
   myservo.attach(2); // attaches the servo on GIO2 to the servo object
 
@@ -57,12 +67,40 @@ void setup() {
   delay(500);
   DPRINT("\n\nWifi ");
   WiFi.begin(ssid, passwd);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    DPRINT(".");
+
+  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+    Serial.println("Connection Failed! Rebooting...");
+    delay(5000);
+    ESP.restart();
   }
+
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  
   DPRINTLN(" done");
 
+  server.on("/", handleManual);
+  server.begin();
+
+  ArduinoOTA.begin();
+  
+}
+
+void handleManual(){
+  for (uint8_t i=0; i<server.args(); i++){
+    if(server.argName(i) == "feed")
+    {
+      feedCat(server.arg(i).toInt());
+             myservo.write(90); // tell servo to go to position in variable 'pos'
+
+      //myservo.write(server.arg(i).toInt()); // tell servo to go to position in variable 'pos'       
+    }
+  }
+  server.send(200, "text/plain", "use ?feed= to manual feed");
 }
 
 void feedCat(int param) {
@@ -126,18 +164,24 @@ void parseJsonCommand(String json_txt)
 
 void loop() {
 
-  DPRINT("Free heap .. ");
-  DPRINTLN(ESP.getFreeHeap());
   WiFiClientSecureRedirect client;
+  ArduinoOTA.handle();
+  server.handleClient();
 
-  if (!client.connected()) client.connect(dstHost, dstPort);  
-  client.request(dstPath, dstHost, 2000, dstFingerprint, redirFingerprint);
+  unsigned long currentMillis = millis();
 
-  String resp = client.getRedir();
-  Serial.println(resp);
-  
-  parseJsonCommand(resp);
- 
-  delay(1500);
+  if(currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;   
+
+    DPRINT("Free heap .. ");
+    DPRINTLN(ESP.getFreeHeap());
+    Serial.println("OTA");    
+    
+    if (!client.connected()) client.connect(dstHost, dstPort);  
+    client.request(dstPath, dstHost, 2000, dstFingerprint, redirFingerprint);
+    String resp = client.getRedir();
+    Serial.println(resp);    
+    parseJsonCommand(resp);
+  }
 
 }
