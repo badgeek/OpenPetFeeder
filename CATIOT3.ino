@@ -59,7 +59,7 @@ void ISRWatchdog() {
 
 #endif
 
-Servo myservo; // create servo object to control a servo
+Servo feederServo; // create servo object to control a servo
 
 // replace with your network credentials
 char const * const ssid = "RUMAH"; // ** UPDATE ME **
@@ -104,7 +104,7 @@ void setup() {
     ESP.restart();
   }
 
-  myservo.attach(2); // attaches the servo on GIO2 to the servo object
+  feederServo.attach(2); // attaches the servo on GIO2 to the servo object
 
 #ifdef ENABLE_WATCHDOG
   secondTick.attach(1, ISRWatchdog);
@@ -146,7 +146,7 @@ void handleManual(){
     if(server.argName(i) == "feed")
     {
       feedCat(server.arg(i).toInt());
-      myservo.write(90); // tell servo to go to position in variable 'pos'
+      feederServo.write(90); // tell servo to go to position in variable 'pos'
     }
   }
   server.send(200, "text/plain", "use ?feed= to manual feed");
@@ -157,12 +157,12 @@ void feedCat(int param) {
   for (int j = 0; j < param; j++) {
       for (pos = 0; pos <= 180; pos += 20) // goes from 0 degrees to 180 degrees
       { // in steps of 1 degree
-        myservo.write(pos); // tell servo to go to position in variable 'pos'
+        feederServo.write(pos); // tell servo to go to position in variable 'pos'
         delay(30); // waits 15ms for the servo to reach the position
       }
       for (pos = 180; pos >= 0; pos -= 20) // goes from 180 degrees to 0 degrees
       {
-        myservo.write(pos); // tell servo to go to position in variable 'pos'
+        feederServo.write(pos); // tell servo to go to position in variable 'pos'
         delay(30); // waits 15ms for the servo to reach the position
       }
   }
@@ -202,7 +202,7 @@ void parseJsonCommand(String json_txt)
      if (strstr(event_title, "makan") != NULL) {
        DPRINTLN("MAKAN");
        feedCat(param);
-       myservo.write(90); // tell servo to go to position in variable 'pos'
+       feederServo.write(90); // tell servo to go to position in variable 'pos'
      }
      
    }
