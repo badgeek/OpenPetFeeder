@@ -178,7 +178,7 @@ void parseJsonCommand(String json_txt)
  
  if (!root.success()) {
  
-   Serial.println("parseObject() failed");
+   DPRINTLN("parseObject() failed");
  
  } else {
    
@@ -190,19 +190,18 @@ void parseJsonCommand(String json_txt)
    
    if (strcmp(event_prev_id.c_str(), event_id) == 0) {
    
-     Serial.println("same event");
+     DPRINTLN("same event");
    
    } else {
      
      event_prev_id = String(event_id);
      
-     Serial.println("updated event");
-     Serial.println(event_id);
-     Serial.println(event_title);
+     DPRINTLN("updated event");
+     DPRINTLN(event_id);
+     DPRINTLN(event_title);
      
      if (strstr(event_title, "makan") != NULL) {
-      
-       Serial.println("MAKAN");
+       DPRINTLN("MAKAN");
        feedCat(param);
        myservo.write(90); // tell servo to go to position in variable 'pos'
        
@@ -233,8 +232,8 @@ void loop() {
 
     DPRINT("Free heap .. ");
     DPRINTLN(ESP.getFreeHeap());
-    Serial.println("OTA");    
-    
+
+    DPRINTLN("Connecting..");    
     if (!client.connected()) client.connect(dstHost, dstPort);  
     client.request(dstPath, dstHost, 2000, dstFingerprint, redirFingerprint);
     String resp = client.getRedir();
