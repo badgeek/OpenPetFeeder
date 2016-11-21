@@ -16,6 +16,17 @@
 #define MILLIS_INTERVAL 5000
 #define ENABLE_WATCHDOG
 #define WATCHDOG_TIMEOUT 10
+
+// from LarryD, Arduino forum
+#define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
+#ifdef DEBUG    //Macros are usually in all capital letters.
+  #define DPRINT(...)    Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
+  #define DPRINTLN(...)  Serial.println(__VA_ARGS__)   //DPRINTLN is a macro, debug print with new line
+#else
+  #define DPRINT(...)     //now defines a blank line
+  #define DPRINTLN(...)   //now defines a blank line
+#endif
+
 #include <ESP8266WiFi.h> 
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
@@ -69,16 +80,6 @@ char const * const dstFingerprint = "EF:3D:5B:04:F5:1D:97:A3:CD:ED:29:35:84:AF:6
 char const * const redirFingerprint = "42:06:30:DE:E4:62:45:98:7D:3D:D1:AD:FC:D7:40:4A:F9:D6:C3:0F";
 
 String event_prev_id = "";
-
-// from LarryD, Arduino forum
-#define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
-#ifdef DEBUG    //Macros are usually in all capital letters.
-  #define DPRINT(...)    Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
-  #define DPRINTLN(...)  Serial.println(__VA_ARGS__)   //DPRINTLN is a macro, debug print with new line
-#else
-  #define DPRINT(...)     //now defines a blank line
-  #define DPRINTLN(...)   //now defines a blank line
-#endif
 
 ESP8266WebServer server(80);
 
