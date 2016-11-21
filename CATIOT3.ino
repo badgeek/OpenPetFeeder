@@ -11,12 +11,16 @@
    All text above must be included in any redistribution
 */
 
+//#define ARDUINO_OTA
 #include <ESP8266WiFi.h> 
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 
 #include <WiFiUdp.h>
+
+#ifdef ARDUINO_OTA
 #include <ArduinoOTA.h>
+#endif
 
 #include "WiFiClientSecureRedirect.h" 
 #include <ArduinoJson.h> 
@@ -59,6 +63,9 @@ ESP8266WebServer server(80);
 
 unsigned long previousMillis = 0;
 const long interval = 5000;
+#ifdef ARDUINO_OTA
+bool enable_ota = false;
+#endif
 
 void setup() {
   myservo.attach(2); // attaches the servo on GIO2 to the servo object
@@ -86,7 +93,23 @@ void setup() {
   server.on("/", handleManual);
   server.begin();
 
-  ArduinoOTA.begin();
+ #ifdef ARDUINO_OTA
+  ArduinoOTA.onStart([]() {
+    enable_ota = true;
+    Serial.println("Start");
+  });
+  ArduinoOTA.onStart([]() {
+    Serial.println("Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });  
+  ArduinoOTA.setPassword((const char *)"123");
+  ArduinoOTA.begin();  
+ #endif
   
 }
 
@@ -165,11 +188,13 @@ void parseJsonCommand(String json_txt)
 void loop() {
 
   WiFiClientSecureRedirect client;
-  ArduinoOTA.handle();
   server.handleClient();
 
   unsigned long currentMillis = millis();
 
+#ifdef ARDUINO_OTA
+  ArduinoOTA.handle();
+#endif
   if(currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;   
 
