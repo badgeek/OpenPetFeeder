@@ -12,6 +12,8 @@
 */
 
 //#define ARDUINO_OTA
+//#define USE_MILLIS
+#define MILLIS_INTERVAL 5000
 #include <ESP8266WiFi.h> 
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
@@ -61,8 +63,11 @@ String event_prev_id = "";
 
 ESP8266WebServer server(80);
 
+#ifdef USE_MILLIS
 unsigned long previousMillis = 0;
-const long interval = 5000;
+const long interval = MILLIS_INTERVAL;
+#endif
+
 #ifdef ARDUINO_OTA
 bool enable_ota = false;
 #endif
@@ -190,13 +195,16 @@ void loop() {
   WiFiClientSecureRedirect client;
   server.handleClient();
 
-  unsigned long currentMillis = millis();
 
 #ifdef ARDUINO_OTA
   ArduinoOTA.handle();
 #endif
+  
+#ifdef USE_MILLIS
+  unsigned long currentMillis = millis();
   if(currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;   
+#endif
 
     DPRINT("Free heap .. ");
     DPRINTLN(ESP.getFreeHeap());
@@ -207,6 +215,11 @@ void loop() {
     String resp = client.getRedir();
     Serial.println(resp);    
     parseJsonCommand(resp);
+#ifdef USE_MILLIS
   }
+#endif
 
+#ifndef USE_MILLIS
+delay(1500);
+#endif
 }
