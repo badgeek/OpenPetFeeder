@@ -16,7 +16,7 @@
 #define MILLIS_INTERVAL 5000
 #define ENABLE_WATCHDOG
 #define WATCHDOG_TIMEOUT 10
-#define CLIENT_TIMEOUT 10000
+#define CLIENT_TIMEOUT 2000
 
 // from LarryD, Arduino forum
 #define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
@@ -211,9 +211,7 @@ void parseJsonCommand(String json_txt)
 
 void loop() {
 
-  WiFiClientSecureRedirect client;
-  client.setTimeout(CLIENT_TIMEOUT);
-  
+  WiFiClientSecureRedirect client;  
   server.handleClient();
 
 #ifdef ENABLE_WATCHDOG
@@ -239,7 +237,7 @@ void loop() {
     if (client.connected())
     {
       DPRINTLN("Send request..");    
-      client.request(dstPath, dstHost, 2000, dstFingerprint, redirFingerprint);
+      client.request(dstPath, dstHost, CLIENT_TIMEOUT, dstFingerprint, redirFingerprint);
       String resp = client.getRedir();
       DPRINTLN(resp);    
       parseJsonCommand(resp);    
