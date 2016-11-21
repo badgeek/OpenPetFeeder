@@ -235,10 +235,16 @@ void loop() {
 
     DPRINTLN("Connecting..");    
     if (!client.connected()) client.connect(dstHost, dstPort);  
-    client.request(dstPath, dstHost, 2000, dstFingerprint, redirFingerprint);
-    String resp = client.getRedir();
-    Serial.println(resp);    
-    parseJsonCommand(resp);
+
+    if (client.connected())
+    {
+      DPRINTLN("Send request..");    
+      client.request(dstPath, dstHost, 2000, dstFingerprint, redirFingerprint);
+      String resp = client.getRedir();
+      DPRINTLN(resp);    
+      parseJsonCommand(resp);    
+    }
+    
 #ifdef USE_MILLIS
   }
 #endif
