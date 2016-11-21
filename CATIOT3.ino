@@ -16,6 +16,7 @@
 #define MILLIS_INTERVAL 5000
 #define ENABLE_WATCHDOG
 #define WATCHDOG_TIMEOUT 10
+#define CLIENT_TIMEOUT 10000
 
 // from LarryD, Arduino forum
 #define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
@@ -68,7 +69,6 @@ char const * const passwd = "123456789"; // ** UPDATE ME **
 char const * const dstHost = "script.google.com";
 const char * googleRedirHost = "script.googleusercontent.com";
 int const dstPort = 443;
-int32_t const timeout = 5000;
 
 char const * const dstPath = "/macros/s/AKfycbwMYHPMUuBhlNEHBfeBc8O2qJKMyMIhg384xF5CPTuqRMIJXBhC/exec"; // ** UPDATE ME **
 
@@ -116,7 +116,6 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  
   DPRINTLN(" done");
 
   server.on("/", handleManual);
@@ -204,7 +203,6 @@ void parseJsonCommand(String json_txt)
        DPRINTLN("MAKAN");
        feedCat(param);
        myservo.write(90); // tell servo to go to position in variable 'pos'
-       
      }
      
    }
@@ -214,6 +212,8 @@ void parseJsonCommand(String json_txt)
 void loop() {
 
   WiFiClientSecureRedirect client;
+  client.setTimeout(CLIENT_TIMEOUT);
+  
   server.handleClient();
 
 #ifdef ENABLE_WATCHDOG
