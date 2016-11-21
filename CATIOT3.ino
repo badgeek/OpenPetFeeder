@@ -59,7 +59,6 @@ void ISRWatchdog() {
 #endif
 
 Servo myservo; // create servo object to control a servo
-// twelve servo objects can be created on most boards
 
 // replace with your network credentials
 char const * const ssid = "RUMAH"; // ** UPDATE ME **
@@ -93,7 +92,6 @@ bool enable_ota = false;
 #endif
 
 void setup() {
-  myservo.attach(2); // attaches the servo on GIO2 to the servo object
 
   Serial.begin(115200);
   delay(500);
@@ -106,6 +104,7 @@ void setup() {
     ESP.restart();
   }
 
+  myservo.attach(2); // attaches the servo on GIO2 to the servo object
 
 #ifdef ENABLE_WATCHDOG
   secondTick.attach(1, ISRWatchdog);
@@ -148,9 +147,7 @@ void handleManual(){
     if(server.argName(i) == "feed")
     {
       feedCat(server.arg(i).toInt());
-             myservo.write(90); // tell servo to go to position in variable 'pos'
-
-      //myservo.write(server.arg(i).toInt()); // tell servo to go to position in variable 'pos'       
+      myservo.write(90); // tell servo to go to position in variable 'pos'
     }
   }
   server.send(200, "text/plain", "use ?feed= to manual feed");
