@@ -14,6 +14,8 @@
 //#define ARDUINO_OTA
 //#define USE_MILLIS
 #define MILLIS_INTERVAL 5000
+#define ENABLE_WATCHDOG
+#define WATCHDOG_TIMEOUT 10
 #include <ESP8266WiFi.h> 
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
@@ -27,6 +29,23 @@
 #include "WiFiClientSecureRedirect.h" 
 #include <ArduinoJson.h> 
 #include <Servo.h> 
+
+
+#ifdef ENABLE_WATCHDOG
+#include <Ticker.h>
+
+Ticker secondTick;
+volatile int watchdogCount = 0;
+
+void ISRWatchdog() {
+  watchdogCount++;
+  if (watchdogCount >= WATCHDOG_TIMEOUT)
+  {
+    ESP.reset();
+  }
+}
+
+#endif
 
 Servo myservo; // create servo object to control a servo
 // twelve servo objects can be created on most boards
@@ -85,6 +104,11 @@ void setup() {
     delay(5000);
     ESP.restart();
   }
+
+
+#ifdef ENABLE_WATCHDOG
+  secondTick.attach(1, ISRWatchdog);
+#endif
 
   Serial.println("");
   Serial.print("Connected to ");
@@ -195,6 +219,9 @@ void loop() {
   WiFiClientSecureRedirect client;
   server.handleClient();
 
+#ifdef ENABLE_WATCHDOG
+  watchdogCount = 0;
+#endif
 
 #ifdef ARDUINO_OTA
   ArduinoOTA.handle();
