@@ -12,23 +12,24 @@
 */
 
 //#define ARDUINO_OTA
+#define DEBUG
 //#define USE_MILLIS
-#define MILLIS_INTERVAL 5000
+#define UPDATE_INTERVAL 5000
 #define ENABLE_WATCHDOG
-#define WATCHDOG_TIMEOUT 10
-#define CLIENT_TIMEOUT 2000
+#define WATCHDOG_TIMEOUT 30
+#define CLIENT_TIMEOUT 5000
+#define NEUTRAL_SERVO_POS 90
 
 // from LarryD, Arduino forum
-#define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
 #ifdef DEBUG    //Macros are usually in all capital letters.
-  #define DPRINT(...)    Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
-  #define DPRINTLN(...)  Serial.println(__VA_ARGS__)   //DPRINTLN is a macro, debug print with new line
+#define DPRINT(...)    Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
+#define DPRINTLN(...)  Serial.println(__VA_ARGS__)   //DPRINTLN is a macro, debug print with new line
 #else
-  #define DPRINT(...)     //now defines a blank line
-  #define DPRINTLN(...)   //now defines a blank line
+#define DPRINT(...)     //now defines a blank line
+#define DPRINTLN(...)   //now defines a blank line
 #endif
 
-#include <ESP8266WiFi.h> 
+#include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
 #ifdef ARDUINO_OTA
@@ -37,9 +38,9 @@
 #include <ArduinoOTA.h>
 #endif
 
-#include "WiFiClientSecureRedirect.h" 
-#include <ArduinoJson.h> 
-#include <Servo.h> 
+#include "WiFiClientSecureRedirect.h"
+#include <ArduinoJson.h>
+#include <Servo.h>
 
 
 #ifdef ENABLE_WATCHDOG
@@ -83,12 +84,14 @@ ESP8266WebServer server(80);
 
 #ifdef USE_MILLIS
 unsigned long previousMillis = 0;
-const long interval = MILLIS_INTERVAL;
+const long interval = UPDATE_INTERVAL;
 #endif
 
 #ifdef ARDUINO_OTA
 bool enable_ota = false;
 #endif
+
+bool firstRun = true;
 
 void setup() {
 
@@ -120,7 +123,7 @@ void setup() {
   server.on("/", handleManual);
   server.begin();
 
- #ifdef ARDUINO_OTA
+#ifdef ARDUINO_OTA
   ArduinoOTA.onStart([]() {
     enable_ota = true;
     Serial.println("Start");
@@ -133,19 +136,21 @@ void setup() {
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });  
+  });
   ArduinoOTA.setPassword((const char *)"123");
-  ArduinoOTA.begin();  
- #endif
-  
+  ArduinoOTA.begin();
+#endif
+
 }
 
-void handleManual(){
-  for (uint8_t i=0; i<server.args(); i++){
-    if(server.argName(i) == "feed")
+void handleManual() {
+  for (uint8_t i = 0; i < server.args(); i++) {
+    if (server.argName(i) == "feed")
     {
       feedCat(server.arg(i).toInt());
-      feederServo.write(90); // tell servo to go to position in variable 'pos'
+      DPRINTLN("SEND FEED LOG");
+      feederServo.write(NEUTRAL_SERVO_POS); // tell servo to go to position in variable 'pos'      
+      sendLog(server.arg(i).toInt());
     }
   }
   server.send(200, "text/plain", "use ?feed= to manual feed");
@@ -154,63 +159,101 @@ void handleManual(){
 void feedCat(int param) {
   int pos;
   for (int j = 0; j < param; j++) {
-      for (pos = 0; pos <= 180; pos += 20) // goes from 0 degrees to 180 degrees
-      { // in steps of 1 degree
-        feederServo.write(pos); // tell servo to go to position in variable 'pos'
-        delay(30); // waits 15ms for the servo to reach the position
-      }
-      for (pos = 180; pos >= 0; pos -= 20) // goes from 180 degrees to 0 degrees
-      {
-        feederServo.write(pos); // tell servo to go to position in variable 'pos'
-        delay(30); // waits 15ms for the servo to reach the position
-      }
+    for (pos = 0; pos <= 180; pos += 20) // goes from 0 degrees to 180 degrees
+    { // in steps of 1 degree
+      feederServo.write(pos); // tell servo to go to position in variable 'pos'
+      delay(30); // waits 15ms for the servo to reach the position
+    }
+    for (pos = 180; pos >= 0; pos -= 20) // goes from 180 degrees to 0 degrees
+    {
+      feederServo.write(pos); // tell servo to go to position in variable 'pos'
+      delay(30); // waits 15ms for the servo to reach the position
+    }
   }
 }
 
 
+void sendLog(int qty) {
+  
+  WiFiClientSecureRedirect client;
+
+  String query_path(dstPath);
+  query_path +=  "?qty=" + String(qty);
+  
+  if (!client.connected()) client.connect(dstHost, dstPort);
+  
+  if (client.connected())
+  {
+    client.request(query_path.c_str(), dstHost, CLIENT_TIMEOUT, dstFingerprint, redirFingerprint);
+  }
+  
+}
+
+
+String getSchedule() {
+  
+  WiFiClientSecureRedirect client;
+  if (!client.connected()) client.connect(dstHost, dstPort);
+
+  if (client.connected())
+  {
+    DPRINTLN("Send request..");
+    client.request(dstPath, dstHost, CLIENT_TIMEOUT, dstFingerprint, redirFingerprint);
+    String resp = client.getRedir();
+    DPRINTLN(resp);
+    return resp;
+  }else{
+    return "";
+  }
+  
+}
+
 void parseJsonCommand(String json_txt)
 {
-  
- StaticJsonBuffer <400> jsonBuffer;   
- JsonObject & root = jsonBuffer.parseObject(json_txt);
- 
- if (!root.success()) {
- 
-   DPRINTLN("parseObject() failed");
- 
- } else {
-   
-   const char * event_id = root["id"];
-   const char * event_title = root["title"];
-   
-   int param = atoi(root["param"]);
-   if (param == 0) param = 5;
-   
-   if (strcmp(event_prev_id.c_str(), event_id) == 0) {
-   
-     DPRINTLN("same event");
-   
-   } else {
-     
-     event_prev_id = String(event_id);
-     
-     DPRINTLN("updated event");
-     DPRINTLN(event_id);
-     DPRINTLN(event_title);
-     
-     if (strstr(event_title, "makan") != NULL) {
-       DPRINTLN("MAKAN");
-       feedCat(param);
-       feederServo.write(90); // tell servo to go to position in variable 'pos'
-     }
-     
-   }
- }
+
+  StaticJsonBuffer <400> jsonBuffer;
+  JsonObject & root = jsonBuffer.parseObject(json_txt);
+
+  if (!root.success()) {
+
+    DPRINTLN("parseObject() failed");
+
+  } else {
+
+    const char * event_id = root["id"];
+    const char * event_title = root["title"];
+
+    int param = atoi(root["param"]);
+    if (param == 0) param = 5;
+
+    if (strcmp(event_prev_id.c_str(), event_id) == 0) {
+
+      DPRINTLN("same event");
+
+    } else {
+
+      event_prev_id = String(event_id);
+
+      DPRINTLN("updated event");
+      DPRINTLN(event_id);
+      DPRINTLN(event_title);
+
+      if (strstr(event_title, "makan") != NULL) {
+        DPRINTLN("FEED CAT");
+        feedCat(param);
+        DPRINTLN("SEND FEED LOG");
+        feederServo.write(NEUTRAL_SERVO_POS); // tell servo to go to position in variable 'pos'
+        sendLog(param);
+      }
+
+    }
+  }
 }
+
+
 
 void loop() {
 
-  WiFiClientSecureRedirect client;  
   server.handleClient();
 
 #ifdef ENABLE_WATCHDOG
@@ -220,33 +263,29 @@ void loop() {
 #ifdef ARDUINO_OTA
   ArduinoOTA.handle();
 #endif
-  
+
+//send log if first start
+if (firstRun == true) {
+  DPRINTLN("First run..");  
+  firstRun = false;
+  sendLog(0);
+}
+
 #ifdef USE_MILLIS
   unsigned long currentMillis = millis();
-  if(currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;   
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
 #endif
-
     DPRINT("Free heap .. ");
     DPRINTLN(ESP.getFreeHeap());
-
-    DPRINTLN("Connecting..");    
-    if (!client.connected()) client.connect(dstHost, dstPort);  
-
-    if (client.connected())
-    {
-      DPRINTLN("Send request..");    
-      client.request(dstPath, dstHost, CLIENT_TIMEOUT, dstFingerprint, redirFingerprint);
-      String resp = client.getRedir();
-      DPRINTLN(resp);    
-      parseJsonCommand(resp);    
-    }
-    
+    DPRINTLN("Connecting..");
+    String resp = getSchedule();
+    parseJsonCommand(resp);
 #ifdef USE_MILLIS
   }
 #endif
 
 #ifndef USE_MILLIS
-delay(1500);
+  delay(UPDATE_INTERVAL);
 #endif
 }
