@@ -18,7 +18,7 @@
 #define ENABLE_WATCHDOG
 #define WATCHDOG_TIMEOUT 30
 #define CLIENT_TIMEOUT 5000
-#define NEUTRAL_SERVO_POS 90
+#define NEUTRAL_SERVO_POS 90 //you need to tweak this so that servo not trying to adjust all the time
 
 // from LarryD, Arduino forum
 #ifdef DEBUG    //Macros are usually in all capital letters.
@@ -41,6 +41,7 @@
 #include "WiFiClientSecureRedirect.h"
 #include <ArduinoJson.h>
 #include <Servo.h>
+#include "FS.h" //SPIFFS
 
 
 #ifdef ENABLE_WATCHDOG
@@ -93,6 +94,61 @@ bool enable_ota = false;
 
 bool firstRun = true;
 
+
+String loadConfig() {
+  File configFile = SPIFFS.open("/config.json", "r");
+  if (!configFile) {
+    DPRINTLN("Failed to open config file");
+    return "";
+  }
+
+  size_t size = configFile.size();
+  if (size > 1024) {
+    DPRINTLN("Config file size is too large");
+    return "";
+  }
+
+  // Allocate a buffer to store contents of the file.
+  std::unique_ptr<char[]> buf(new char[size]);
+
+  // We don't use String here because ArduinoJson library requires the input
+  // buffer to be mutable. If you don't use ArduinoJson, you may as well
+  // use configFile.readString instead.
+  configFile.readBytes(buf.get(), size);
+
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& json = jsonBuffer.parseObject(buf.get());
+
+  if (!json.success()) {
+    DPRINTLN("Failed to parse config file");
+    return "";
+  }
+
+  const char* serverName = json["calendar_id"];
+
+  return String(serverName);
+}
+
+bool saveConfig(String cal_id) {
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& json = jsonBuffer.createObject();
+  
+  json["calendar_id"] = cal_id;
+
+  File configFile = SPIFFS.open("/config.json", "w");
+  
+  if (!configFile) {
+    DPRINTLN("Failed to open config file for writing");
+    return false;
+  }
+
+  json.printTo(configFile);
+  
+  return true;
+}
+
+
+
 void setup() {
 
   Serial.begin(115200);
@@ -141,6 +197,7 @@ void setup() {
   ArduinoOTA.begin();
 #endif
 
+  event_prev_id = loadConfig();
 }
 
 void handleManual() {
@@ -232,13 +289,14 @@ void parseJsonCommand(String json_txt)
 
     } else {
 
-      event_prev_id = String(event_id);
 
       DPRINTLN("updated event");
       DPRINTLN(event_id);
       DPRINTLN(event_title);
 
       if (strstr(event_title, "makan") != NULL) {
+        event_prev_id = String(event_id);
+        saveConfig(event_prev_id);
         DPRINTLN("FEED CAT");
         feedCat(param);
         DPRINTLN("SEND FEED LOG");
