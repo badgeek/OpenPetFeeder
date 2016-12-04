@@ -119,12 +119,9 @@ WiFiClientSecureRedirect::receiveHostReply()
     return 1;
   }
 
-  int timeout = 5 * 10; // 5 seconds
-  while (connected() && available() && (timeout-- > 0)) {
+  while (WiFiClientSecure::connected() && WiFiClientSecure::available()) {
     (void)read();  // maybe we need to empty the Rx buffer before closing the socket
-    delay(100);
   }
-  
   WiFiClientSecure::stop();
   return 0;
 }
@@ -196,13 +193,11 @@ String WiFiClientSecureRedirect::getRedir()
   receiveRedirHeader();
 
   String line;
-
-  int timeout = 5 * 10; // 5 seconds
-  while (!available() && (timeout-- > 0)) {
-    line += readStringUntil('\n');
-    delay(100);
-  }
   
+  while (WiFiClientSecure::available()) {  // read and print until end of data
+     line += readStringUntil('\n');
+  }
+
   return line;
 }
 
