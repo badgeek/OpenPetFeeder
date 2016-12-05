@@ -164,6 +164,13 @@ void setup() {
 
   feederServo.attach(2); // attaches the servo on GIO2 to the servo object
 
+  DPRINTLN("\n\Init SPIFFS ");
+
+  if (!SPIFFS.begin()) {
+    DPRINTLN("Failed to mount file system");
+    return;
+  }
+
 #ifdef ENABLE_WATCHDOG
   secondTick.attach(1, ISRWatchdog);
 #endif
